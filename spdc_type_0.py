@@ -9,7 +9,7 @@ def n_z(wl_um):
 # Wavelengths (in micrometers)
 wl_p = 0.405  # Pump wavelength
 wl_s = 0.810  # Signal wavelength
-wl_i = 1 / (1 / wl_p - 1 / wl_s)  # From energy conservation
+wl_i = 0.810  # From energy conservation
 
 # Refractive indices (all same polarization)
 n_p = n_z(wl_p)

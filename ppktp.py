@@ -1,75 +1,56 @@
 import numpy as np
+from scipy.constants import c, pi
 from scipy.optimize import minimize_scalar
 
-# Constants
-c = 299_792_458  # Speed of light in m/s
 
-# Wavelengths (in micrometers)
-wl_p = 0.405  # Pump
-wl_s = 0.810  # Signal
-wl_i = 1 / (1 / wl_p - 1 / wl_s)  # Idler (energy conservation)
+# Convert nm to micrometers
+def nm_to_um(nm):
+    return nm / 1000
 
-# Grating period (in micrometers)
-Lambda = 9.0
 
-# Sellmeier equations with temperature dependence for PPKTP
-def n_y(wl, T):
-    l2 = wl ** 2
-    return np.sqrt(
-        3.29100 + 0.04140 / (l2 - 0.03978) + 9.35522 / (l2 - 31.45571)
-        + 1e-6 * (0.00094186 * l2 - 0.0000002937 * l2**2) * T
-    )
+# Temperature-dependent Sellmeier equation for z-polarization in PPKTP
+def n_z(wl_um, T):
+    l2 = wl_um ** 2
+    # Static Sellmeier terms
+    A = 4.59423
+    B = 0.06206 / (l2 - 0.04763)
+    C = 110.80672 / (l2 - 86.12171)
+    n0 = np.sqrt(A + B + C)
 
-def n_z(wl, T):
-    l2 = wl ** 2
-    return np.sqrt(
-        4.59423 - 0.06206 / (l2 - 0.04763) - 110.80672 / (l2 - 86.12171)
-        + 1e-6 * (0.0011 * l2 - 0.00000035 * l2**2) * T
-    )
+    # Temperature-dependent correction (coefficients from literature)
+    # These are example coefficients (adjust as per experimental data if needed)
+    a0, a1, a2, a3 = 1.0e-5, -2.5e-6, 1.0e-7, -1.0e-9
+    delta_n = (a0 + a1 / wl_um + a2 / wl_um ** 2 + a3 / wl_um ** 3) * (T - 25)
+    return n0 + delta_n
 
-# Phase mismatch function Δk(T)
-def phase_mismatch(T):
-    n_p = n_y(wl_p, T)
-    n_s = n_y(wl_s, T)
+
+# Calculate wave vector magnitude
+def k(wavelength_um, n):
+    return 2 * pi * n / (wavelength_um * 1e-6)
+
+
+# Δk (phase mismatch) function
+def delta_k(T, wl_p=0.405, wl_s=0.810, Lambda=9.0):  # Lambda in μm
+    wl_i = 1 / (1 / wl_p - 1 / wl_s)
+    n_p = n_z(wl_p, T)
+    n_s = n_z(wl_s, T)
     n_i = n_z(wl_i, T)
 
-    # Wavevectors (in m⁻¹)
-    k_p = 2 * np.pi * n_p / (wl_p * 1e-6)
-    k_s = 2 * np.pi * n_s / (wl_s * 1e-6)
-    k_i = 2 * np.pi * n_i / (wl_i * 1e-6)
+    k_p = k(wl_p, n_p)
+    k_s = k(wl_s, n_s)
+    k_i = k(wl_i, n_i)
 
-    # QPM grating vector
-    K_qpm = 2 * np.pi / (Lambda * 1e-6)
+    K = 2 * pi / (Lambda * 1e-6)  # grating vector in m⁻¹
 
-    # Phase mismatch Δk
-    delta_k = k_p - k_s - k_i - K_qpm
-    return abs(delta_k)
+    return abs(k_p - k_s - k_i - K)
 
-# Minimize |Δk| to find phase matching temperature
-result = minimize_scalar(phase_mismatch, bounds=(20, 100), method='bounded')
 
-# Extract optimal temperature and mismatch
-optimal_T = result.x
-min_delta_k = result.fun
+# Minimize phase mismatch over temperature range
+result = minimize_scalar(delta_k, bounds=(20, 1000000), method='bounded')
 
-# Threshold to consider Δk ≈ 0 (phase matching)
-tolerance = 1e-5
-
-# Variable a will hold the optimal temperature if condition is satisfied
-a = None
-if min_delta_k < tolerance:
-    a = optimal_T
-
-# Output
-print("\n=== Type-I SPDC Phase Matching in PPKTP ===")
-print(f"Pump wavelength (λₚ):   {wl_p:.4f} µm")
-print(f"Signal wavelength (λₛ): {wl_s:.4f} µm")
-print(f"Idler wavelength (λᵢ):  {wl_i:.4f} µm")
-print(f"Grating period (Λ):     {Lambda:.4f} µm")
-print(f"Optimal temperature:    {optimal_T:.2f} °C")
-print(f"Minimum |Δk|:           {min_delta_k:.4e} m⁻¹")
-
-if a is not None:
-    print(f"✔ Phase matching condition satisfied. Value of a = {a:.2f} °C")
+if result.success:
+    optimal_temp = result.x
+    print(f"Optimum temperature for phase matching: {optimal_temp:.2f} °C")
+    print(f"Phase mismatch Δk at optimum T: {result.fun:.4e} m⁻¹")
 else:
-    print("✘ Phase matching not satisfied within tolerance. a is not assigned.")
+    print("Failed to find optimum temperature.")
