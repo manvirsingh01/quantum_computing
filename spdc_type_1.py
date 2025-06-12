@@ -1,54 +1,61 @@
 import numpy as np
-from scipy.optimize import minimize_scalar
+from scipy.optimize import fsolve
 
-# Speed of light in vacuum (m/s)
-c = 299792458
+# --- Refractive Index Model (KDP) ---
 
-# Sellmeier equations for BBO crystal
-# These functions return the refractive indices for ordinary and extraordinary rays
-def sellmeier_o(wl_um):
-    l2 = wl_um ** 2
-    return np.sqrt(2.7359 + 0.01878 / (l2 - 0.01822) - 0.01354 * l2)
+def n_o_kdp(wavelength):
+    lambda_sq = wavelength**2
+    n_o_sq = 2.259276 + (0.0184 / (lambda_sq - 0.0179)) - 0.0155 * lambda_sq
+    return np.sqrt(n_o_sq)
 
-def sellmeier_e(wl_um):
-    l2 = wl_um ** 2
-    return np.sqrt(2.3753 + 0.01224 / (l2 - 0.01667) - 0.01516 * l2)
+def n_e_kdp(wavelength):
+    lambda_sq = wavelength**2
+    n_e_sq = 2.132668 + (0.0128 / (lambda_sq - 0.0156)) - 0.0044 * lambda_sq
+    return np.sqrt(n_e_sq)
 
-# Calculate angle-dependent extraordinary refractive index
-def ne_theta(no, ne, theta_rad):
-    sin2 = np.sin(theta_rad) ** 2
-    cos2 = np.cos(theta_rad) ** 2
-    return (ne * no) / np.sqrt(ne**2 * cos2 + no**2 * sin2)
+def n_e_theta(n_o, n_e, theta_rad):
+    cos2 = np.cos(theta_rad)**2
+    sin2 = np.sin(theta_rad)**2
+    n_e_theta_sq = (n_e**2 * n_o**2) / (n_e**2 * cos2 + n_o**2 * sin2)
+    return np.sqrt(n_e_theta_sq)
 
-# Define wavelengths in micrometers (um)
-wl_p = 0.4   # Pump wavelength
-wl_s = 0.8   # Signal wavelength
-wl_i = 1 / (1 / wl_p - 1 / wl_s)  # Idler wavelength by energy conservation
+# --- Phase Matching Condition ---
 
-# Refractive indices (pre-computed for fixed signal/idler wavelengths)
-no_s = sellmeier_o(wl_s)             # Signal is ordinary polarized
-ne_i = sellmeier_e(wl_i)             # Idler is extraordinary polarized
-no_p = sellmeier_o(wl_p)             # Pump wavelength ordinary index
-
-# Function to calculate the phase mismatch for a given angle
-def phase_mismatch(theta_deg):
+def phase_mismatch(theta_deg, lambda_p, lambda_s, lambda_i):
     theta_rad = np.radians(theta_deg)
-    ne_p_theta = ne_theta(no_p, sellmeier_e(wl_p), theta_rad)  # angle-dependent extraordinary index for pump
+    n_o_p = n_o_kdp(lambda_p)
+    n_e_p = n_e_kdp(lambda_p)
+    n_p_eff = n_e_theta(n_o_p, n_e_p, theta_rad)
+    n_s = n_o_kdp(lambda_s)
+    n_i = n_o_kdp(lambda_i)
+    return (n_p_eff / lambda_p) - (n_s / lambda_s) - (n_i / lambda_i)
 
-    # Calculate wavevectors (k = n * omega / c = 2pi * n / lambda)
-    k_p = ne_p_theta * 2 * np.pi / (wl_p * 1e-6)
-    k_s = no_s * 2 * np.pi / (wl_s * 1e-6)
-    k_i = ne_i * 2 * np.pi / (wl_i * 1e-6)
+# --- Effective Nonlinearity ---
 
-    delta_k = k_p - k_s - k_i
-    return abs(delta_k)  # minimize magnitude of phase mismatch
+def calculate_deff_kdp(theta_deg, phi_deg):
+    d36 = 0.39  # pm/V
+    theta_rad = np.radians(theta_deg)
+    phi_rad = np.radians(phi_deg)
+    return d36 * np.sin(2 * phi_rad) * np.sin(theta_rad)
 
-# Use numerical optimization to find angle that minimizes phase mismatch
-result = minimize_scalar(phase_mismatch, bounds=(20, 40), method='bounded')
+# --- Execution ---
 
-# Final results
-optimal_theta = result.x        # Best phase-matching angle (degrees)
-min_delta_k = result.fun        # Corresponding minimum phase mismatch (m^-1)
+lambda_pump = 0.405  # μm
+lambda_signal = 2 * lambda_pump
+lambda_idler = 2 * lambda_pump
 
-print(f"Optimal phase-matching angle (theta): {optimal_theta:.4f} degrees")
-print(f"Minimum phase mismatch (Delta k): {min_delta_k:.2f} m^-1")
+phi_angle_deg = 45.0
+initial_theta = 40.0
+
+print("KDP Type-I SPDC: Phase Matching and d_eff")
+print("-" * 50)
+print(f"Pump: {lambda_pump * 1000:.0f} nm → Signal/Idler: {lambda_signal * 1000:.0f} nm")
+print("-" * 50)
+
+solution = fsolve(phase_mismatch, initial_theta, args=(lambda_pump, lambda_signal, lambda_idler))
+theta_pm = solution[0]
+
+deff = calculate_deff_kdp(theta_pm, phi_angle_deg)
+
+print(f"Phase-Matching Angle (θ): {theta_pm:.2f}°")
+print(f"Effective Nonlinearity (d_eff): {deff:.4f} pm/V")

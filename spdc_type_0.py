@@ -1,33 +1,51 @@
 import numpy as np
-from scipy.constants import c
 
-# Sellmeier equation for KTP (n_z, assuming all polarizations are z-polarized for Type-0)
-def n_z(wl_um):
-    l2 = wl_um ** 2
-    return np.sqrt(4.59423 + (0.06206 / (l2 - 0.04763)) + (110.80672 / (l2 - 86.12171)))
 
-# Wavelengths (in micrometers)
-wl_p = 0.405  # Pump wavelength
-wl_s = 0.810  # Signal wavelength
-wl_i = 0.810  # From energy conservation
+# --- Sellmeier Equations for KDP ---
 
-# Refractive indices (all same polarization)
-n_p = n_z(wl_p)
-n_s = n_z(wl_s)
-n_i = n_z(wl_i)
+def n_o_kdp(wavelength):
+    lambda_sq = wavelength ** 2
+    n_o_sq = 2.259276 + (0.0184 / (lambda_sq - 0.0179)) - 0.0155 * lambda_sq
+    return np.sqrt(n_o_sq)
 
-# Wavevectors
-k_p = 2 * np.pi * n_p / wl_p
-k_s = 2 * np.pi * n_s / wl_s
-k_i = 2 * np.pi * n_i / wl_i
 
-# Quasi-Phase Matching condition: k_p = k_s + k_i + 2π / Λ
-# Solve for Λ
-delta_k = k_p - k_s - k_i
-Lambda = 2 * np.pi / delta_k
+def n_e_kdp(wavelength):
+    lambda_sq = wavelength ** 2
+    n_e_sq = 2.132668 + (0.0128 / (lambda_sq - 0.0156)) - 0.0044 * lambda_sq
+    return np.sqrt(n_e_sq)
 
-print("Pump Wavelength (um):", wl_p)
-print("Signal Wavelength (um):", wl_s)
-print("Idler Wavelength (um):", wl_i)
-print("Refractive Indices (n_p, n_s, n_i):", n_p, n_s, n_i)
-print("Required Grating Period Λ (um):", Lambda)
+
+def calculate_qpm_period(lambda_p, lambda_s, lambda_i):
+    n_p = n_e_kdp(lambda_p)
+    n_s = n_e_kdp(lambda_s)
+    n_i = n_e_kdp(lambda_i)
+
+    if n_p / lambda_p <= n_s / lambda_s + n_i / lambda_i:
+        print("Warning: Dispersion prevents QPM.")
+        return None
+
+    lambda_inv = (n_p / lambda_p) - (n_s / lambda_s) - (n_i / lambda_i)
+    if lambda_inv <= 0:
+        return None
+
+    return 1 / lambda_inv
+
+
+# --- Execution ---
+
+pump_wavelength = 0.405  # μm
+signal_wavelength = 2 * pump_wavelength
+idler_wavelength = 2 * pump_wavelength
+
+print("Type-0 SPDC in KDP: QPM Grating Period Calculation")
+print("-" * 50)
+print(f"Pump λ: {pump_wavelength * 1000:.0f} nm")
+print(f"Signal/Idler λ: {signal_wavelength * 1000:.0f} nm")
+print("-" * 50)
+
+grating_period = calculate_qpm_period(pump_wavelength, signal_wavelength, idler_wavelength)
+
+if grating_period is not None:
+    print(f"Required grating period (Λ): {grating_period:.2f} μm")
+else:
+    print("No valid grating period found.")
