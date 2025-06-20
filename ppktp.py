@@ -3,7 +3,6 @@ import pandas as pd
 from scipy.constants import pi
 from scipy.optimize import minimize_scalar
 
-# --- Variables from the user's image ---
 # Crystal length (m) - Not used in phase-matching calculation
 L = 2e-3
 # Pump wavelength (m)
@@ -27,8 +26,6 @@ temp_fit_coeff_n2 = pd.DataFrame({
     'y': [-0.14445e-8, 2.2244e-8, -3.5770e-8, 1.3470e-8]
 })
 
-
-# --- End of variables from image ---
 
 
 def calculate_poly_coeffs(wl_um, coeffs):
@@ -111,7 +108,7 @@ def find_optimal_temperature(wl_p_m, poling_period_m):
     objective_function = lambda T_C: delta_k(T_C, wl_p_m, poling_period_m)
 
     # Run the bounded scalar optimization
-    result = minimize_scalar(objective_function, bounds=(20, 1000000000), method='bounded')
+    result = minimize_scalar(objective_function, bounds=(20, 200), method='bounded')
 
     if result.success:
         print(f"Optimum temperature for phase matching: {result.x:.2f} °C")
