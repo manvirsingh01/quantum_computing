@@ -19,7 +19,7 @@ This project provides scripts to calculate the required parameters—such as cry
   - Optimal crystal temperature for PPKTP.
   - Effective nonlinear coefficient ($d_{eff}$).
 
-## Scripts Overview
+## Scripts Overview.         
 
 | Script Name       | Crystal | SPDC Type         | Phase-Matching | Goal                                                                 |
 | ----------------- | ------- | ----------------- | -------------- | -------------------------------------------------------------------- |
