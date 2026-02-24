@@ -2,7 +2,7 @@
 
 This repository contains a collection of Python scripts designed to calculate phase-matching conditions for Spontaneous Parametric Down-Conversion (SPDC) in various nonlinear optical crystals. These tools are essential for designing experiments that generate entangled photon pairs, a fundamental resource in quantum computing and quantum information science.
 
-## Overview
+## Overview.        
 
 Spontaneous Parametric Down-Conversion is a nonlinear optical process where a high-energy pump photon spontaneously splits into two lower-energy photons, conventionally named the "signal" and "idler," inside a nonlinear crystal. For this process to occur efficiently, phase-matching conditions (which ensure momentum conservation) must be met.
 
